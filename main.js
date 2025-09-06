@@ -2,6 +2,7 @@ async function startApp() {
     try {
         const THREE = await import('three');
         const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+        const { STLExporter } = await import('three/addons/exporters/STLExporter.js');
 
         // --- DOM Elements ---
         const appContainer = document.getElementById('app-container');
@@ -11,6 +12,8 @@ async function startApp() {
         const wireframeCheckbox = document.getElementById('wireframeToggle');
         const normalCheckbox = document.getElementById('normalToggle');
         const resetButton = document.getElementById('resetButton');
+        const exportButton = document.getElementById('exportButton');
+        const importInput = document.getElementById('importInput');
         const xCoordInput = document.getElementById('xCoordInput');
         const yCoordInput = document.getElementById('yCoordInput');
 
@@ -96,13 +99,15 @@ async function startApp() {
         }
 
         function resetState() {
-            points = [...DEFAULT_POINTS.map(p => p.clone())];
-            wireframeCheckbox.checked = true;
-            normalCheckbox.checked = true;
-            selectedPoint = null;
-            updateCoordinateInputs();
-            drawProfile();
-            update3DModel();
+            if (confirm("Are you sure you want to reset? This will clear your current design.")) {
+                points = [...DEFAULT_POINTS.map(p => p.clone())];
+                wireframeCheckbox.checked = true;
+                normalCheckbox.checked = true;
+                selectedPoint = null;
+                updateCoordinateInputs();
+                drawProfile();
+                update3DModel();
+            }
         }
 
         function updateWireframeAppearance() {
@@ -218,7 +223,60 @@ async function startApp() {
             return new THREE.Vector2(x, y);
         }
 
+        // --- Import / Export ---
+        function triggerDownload(filename, data) {
+            const blob = new Blob([data], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportData() {
+            // Export STL
+            const exporter = new STLExporter();
+            const stlString = exporter.parse(pendantMesh);
+            triggerDownload('pendant.stl', stlString);
+
+            // Export JSON
+            const jsonString = JSON.stringify(points, null, 2);
+            triggerDownload('pendant.json', jsonString);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    // Basic validation
+                    if (Array.isArray(json) && json.every(p => typeof p.x === 'number' && typeof p.y === 'number')) {
+                        points = json.map(p => new THREE.Vector2(p.x, p.y));
+                        selectedPoint = null;
+                        updateCoordinateInputs();
+                        drawProfile();
+                        update3DModel();
+                    } else {
+                        alert('Invalid JSON file format.');
+                    }
+                } catch (error) {
+                    alert('Error reading or parsing JSON file.');
+                }
+                // Reset file input
+                importInput.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // --- Event Handlers ---
         resetButton.addEventListener('click', resetState);
+        exportButton.addEventListener('click', exportData);
+        importInput.addEventListener('change', importData);
+
         wireframeCheckbox.addEventListener('change', () => {
             if (wireframeMesh) wireframeMesh.visible = wireframeCheckbox.checked;
             saveState();

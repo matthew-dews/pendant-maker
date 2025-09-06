@@ -10,11 +10,18 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="menu-bar">
+        <div class="menu-group">
+            <button id="resetButton">Reset</button>
+        </div>
+        <div class="menu-group">
+            <input type="file" id="importInput" accept=".json" style="display: none;">
+            <label for="importInput" class="menu-button">Import JSON</label>
+            <button id="exportButton">Export</button>
+        </div>
+    </div>
     <div id="app-container">
         <div class="editor-container">
-            <div class="view-controls">
-                <button id="resetButton">Reset</button>
-            </div>
             <canvas id="profileCanvas" width="400" height="600"></canvas>
             <div class="coord-inputs">
                 <label>X: <input type="number" id="xCoordInput" step="0.1" disabled></label>
