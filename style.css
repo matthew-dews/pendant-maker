@@ -24,9 +24,19 @@ h1, h2 {
     padding: 20px;
 }
 
+.view-controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 10px;
+}
+
 canvas {
     display: block;
     background-color: #f9f9f9;
     border: 1px solid #ccc;
+}
+
+#profileCanvas {
     cursor: crosshair;
 }

@@ -5,13 +5,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const profileCanvas = document.getElementById('profileCanvas');
 const sceneCanvas = document.getElementById('sceneCanvas');
 const profileCtx = profileCanvas.getContext('2d');
+const wireframeCheckbox = document.getElementById('wireframeToggle');
+const normalCheckbox = document.getElementById('normalToggle');
 
 // --- 2D Profile State ---
 let points = [
-    new THREE.Vector2(0, 3),
-    new THREE.Vector2(1, 3),
-    new THREE.Vector2(1, -3),
-    new THREE.Vector2(0, -3),
+    new THREE.Vector2(0.5, 2),
+    new THREE.Vector2(1.5, 1),
+    new THREE.Vector2(1.5, -1),
+    new THREE.Vector2(0.5, -2),
 ];
 let selectedPoint = null;
 let isDragging = false;
@@ -28,33 +30,77 @@ renderer.setSize(sceneCanvas.width, sceneCanvas.height);
 // --- Lighting ---
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 10, 7.5);
-scene.add(directionalLight);
+const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+mainLight.position.set(5, 10, 7.5);
+scene.add(mainLight);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+fillLight.position.set(-5, -5, -7.5);
+scene.add(fillLight);
 
 // --- Controls ---
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// --- Core 3D Object ---
+// --- Materials ---
+const standardMaterial = new THREE.MeshStandardMaterial({ color: 0xD8D8D8, side: THREE.DoubleSide, metalness: 0.9, roughness: 0.3 });
+const normalMaterial = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide });
+const wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true, transparent: true });
+
+// --- Core 3D Objects ---
 let pendantMesh;
+let wireframeMesh;
+
+function updateWireframeAppearance() {
+    if (!wireframeMaterial) return;
+
+    if (normalCheckbox.checked) {
+        wireframeMaterial.color.set(0x000000); // Black for normal material
+        wireframeMaterial.opacity = 0.15;
+    } else {
+        wireframeMaterial.color.set(0x0077ff); // Blue for standard material
+        wireframeMaterial.opacity = 0.25;
+    }
+}
 
 function update3DModel() {
     if (pendantMesh) {
         scene.remove(pendantMesh);
         pendantMesh.geometry.dispose();
-        pendantMesh.material.dispose();
+    }
+    if (wireframeMesh) {
+        scene.remove(wireframeMesh);
+        wireframeMesh.geometry.dispose();
     }
 
-    // Prevent creating a shape with no volume
-    const profilePoints = points.map(p => new THREE.Vector2(Math.max(0.01, p.x), p.y * 2));
+    if (points.length < 2) return;
 
-    if (profilePoints.length < 2) return;
+    const sortedProfile = [...points].sort((a, b) => b.y - a.y);
 
-    const geometry = new THREE.LatheGeometry(profilePoints, 32);
-    const material = new THREE.MeshStandardMaterial({ color: 0xC0C0C0, side: THREE.DoubleSide, metalness: 0.8, roughness: 0.4 });
-    pendantMesh = new THREE.Mesh(geometry, material);
+    const topPoint = sortedProfile[0];
+    if (topPoint.x > 0) {
+        sortedProfile.unshift(new THREE.Vector2(0, topPoint.y));
+    }
+
+    const bottomPoint = sortedProfile[sortedProfile.length - 1];
+    if (bottomPoint.x > 0) {
+        sortedProfile.push(new THREE.Vector2(0, bottomPoint.y));
+    }
+
+    const finalProfilePoints = sortedProfile.map(p => {
+        const pClone = p.clone();
+        pClone.x = Math.max(0.01, pClone.x);
+        return pClone;
+    });
+
+    const geometry = new THREE.LatheGeometry(finalProfilePoints, 32);
+
+    pendantMesh = new THREE.Mesh(geometry, normalCheckbox.checked ? normalMaterial : standardMaterial);
     scene.add(pendantMesh);
+
+    updateWireframeAppearance();
+    wireframeMesh = new THREE.Mesh(geometry, wireframeMaterial);
+    wireframeMesh.visible = wireframeCheckbox.checked;
+    scene.add(wireframeMesh);
 }
 
 
@@ -62,7 +108,6 @@ function update3DModel() {
 function drawProfile() {
     profileCtx.clearRect(0, 0, profileCanvas.width, profileCanvas.height);
     
-    // Draw the center line
     profileCtx.beginPath();
     profileCtx.moveTo(profileCanvas.width / 2, 0);
     profileCtx.lineTo(profileCanvas.width / 2, profileCanvas.height);
@@ -70,6 +115,31 @@ function drawProfile() {
     profileCtx.stroke();
 
     if (points.length < 2) return;
+
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+
+    profileCtx.save();
+    profileCtx.setLineDash([4, 4]);
+    profileCtx.strokeStyle = '#aaa';
+    profileCtx.lineWidth = 1;
+
+    if (firstPoint.x > 0) {
+        const firstCanvasPoint = toCanvasCoords(firstPoint);
+        profileCtx.beginPath();
+        profileCtx.moveTo(profileCanvas.width / 2, firstCanvasPoint.y);
+        profileCtx.lineTo(firstCanvasPoint.x, firstCanvasPoint.y);
+        profileCtx.stroke();
+    }
+
+    if (lastPoint.x > 0) {
+        const lastCanvasPoint = toCanvasCoords(lastPoint);
+        profileCtx.beginPath();
+        profileCtx.moveTo(profileCanvas.width / 2, lastCanvasPoint.y);
+        profileCtx.lineTo(lastCanvasPoint.x, lastCanvasPoint.y);
+        profileCtx.stroke();
+    }
+    profileCtx.restore();
 
     profileCtx.beginPath();
     for (let i = 0; i < points.length; i++) {
@@ -84,7 +154,6 @@ function drawProfile() {
     profileCtx.lineWidth = 2;
     profileCtx.stroke();
 
-    // Draw points
     points.forEach((point, index) => {
         const canvasPoint = toCanvasCoords(point);
         profileCtx.beginPath();
@@ -98,7 +167,7 @@ function drawProfile() {
 }
 
 // --- Coordinate Conversion ---
-const worldScale = 50; // 50 pixels = 1 world unit
+const worldScale = 50;
 function toCanvasCoords(worldPoint) {
     const x = (profileCanvas.width / 2) + worldPoint.x * worldScale;
     const y = (profileCanvas.height / 2) - worldPoint.y * worldScale;
@@ -112,23 +181,31 @@ function toWorldCoords(canvasPoint) {
 }
 
 
-// --- 2D Canvas Event Handlers ---
+// --- Event Handlers ---
+wireframeCheckbox.addEventListener('change', () => {
+    if (wireframeMesh) {
+        wireframeMesh.visible = wireframeCheckbox.checked;
+    }
+});
+
+normalCheckbox.addEventListener('change', () => {
+    if (pendantMesh) {
+        pendantMesh.material = normalCheckbox.checked ? normalMaterial : standardMaterial;
+    }
+    updateWireframeAppearance();
+});
+
 function handleMouseMove(event) {
-    // This function is called when the mouse moves, only if we are dragging.
     if (!isDragging || selectedPoint === null) return;
 
     const rect = profileCanvas.getBoundingClientRect();
     let mouseX = event.clientX - rect.left;
     let mouseY = event.clientY - rect.top;
 
-    // Clamp mouse coordinates to be within the canvas bounds
     mouseX = Math.max(0, Math.min(profileCanvas.width, mouseX));
     mouseY = Math.max(0, Math.min(profileCanvas.height, mouseY));
 
     const worldPos = toWorldCoords({ x: mouseX, y: mouseY });
-
-    // We still need to enforce the "no negative x" rule for the pendant shape itself,
-    // even though the clamping above handles the canvas boundary.
     worldPos.x = Math.max(0, worldPos.x);
 
     points[selectedPoint] = worldPos;
@@ -137,9 +214,7 @@ function handleMouseMove(event) {
 }
 
 function handleMouseUp() {
-    // This function is called when the mouse button is released, ending the drag.
     isDragging = false;
-    // Clean up the global event listeners.
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
 }
@@ -158,7 +233,6 @@ profileCanvas.addEventListener('mousedown', (event) => {
             selectedPoint = i;
             pointFound = true;
             isDragging = true;
-            // A point was clicked, so start the drag operation by listening to the whole window.
             window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
             break;
@@ -166,7 +240,6 @@ profileCanvas.addEventListener('mousedown', (event) => {
     }
 
     if (!pointFound) {
-        // If no point was clicked, insert a new one.
         let closestDist = Infinity;
         let insertionIndex = points.length;
         for (let i = 0; i < points.length - 1; i++) {
@@ -194,7 +267,6 @@ profileCanvas.addEventListener('dblclick', (event) => {
         const canvasPoint = toCanvasCoords(points[i]);
         const dist = Math.sqrt(Math.pow(canvasPoint.x - mousePos.x, 2) + Math.pow(canvasPoint.y - mousePos.y, 2));
         if (dist < 6) {
-            // Prevent deleting the last two points
             if (points.length > 2) {
                 points.splice(i, 1);
                 selectedPoint = null;
@@ -206,8 +278,6 @@ profileCanvas.addEventListener('dblclick', (event) => {
     }
 });
 
-
-// --- Helper function for point insertion ---
 function distanceToSegment(p, v, w) {
     const l2 = v.distanceToSquared(w);
     if (l2 === 0) return p.distanceTo(v);
@@ -217,8 +287,6 @@ function distanceToSegment(p, v, w) {
     return p.distanceTo(projection);
 }
 
-
-// --- Animation Loop ---
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
