@@ -64,10 +64,12 @@ async function startApp() {
 
         // --- Logic & State Management ---
         function showInstructions() {
+            document.body.classList.add('modal-open');
             instructionsModal.style.display = 'flex';
         }
 
         function hideInstructions() {
+            document.body.classList.remove('modal-open');
             instructionsModal.style.display = 'none';
             localStorage.setItem('hasSeenInstructions', 'true');
         }

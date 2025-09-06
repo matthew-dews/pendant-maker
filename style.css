@@ -4,8 +4,11 @@ body {
     background-color: #ad99d5;
     display: flex;
     flex-direction: column; /* Arrange menu and app container vertically */
-    height: 100vh;
-    overflow: hidden; /* Prevent scrolling when modal is open */
+    min-height: 100vh; /* Use min-height to allow content to expand */
+}
+
+body.modal-open {
+    overflow: hidden;
 }
 
 .menu-bar {
@@ -90,7 +93,7 @@ canvas {
 }
 
 .coord-inputs {
-    margin-top: 15px;
+    margin-bottom: 15px;
     display: flex;
     gap: 10px;
     justify-content: center;
