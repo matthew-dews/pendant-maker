@@ -74,19 +74,22 @@ function update3DModel() {
 
     if (points.length < 2) return;
 
-    const sortedProfile = [...points].sort((a, b) => b.y - a.y);
+    // Use the points in the user-defined order, creating a copy.
+    const userProfile = [...points];
 
-    const topPoint = sortedProfile[0];
-    if (topPoint.x > 0) {
-        sortedProfile.unshift(new THREE.Vector2(0, topPoint.y));
+    // Add a cap at the start of the line.
+    const firstPoint = userProfile[0];
+    if (firstPoint.x > 0) {
+        userProfile.unshift(new THREE.Vector2(0, firstPoint.y));
     }
 
-    const bottomPoint = sortedProfile[sortedProfile.length - 1];
-    if (bottomPoint.x > 0) {
-        sortedProfile.push(new THREE.Vector2(0, bottomPoint.y));
+    // Add a cap at the end of the line.
+    const lastPoint = userProfile[userProfile.length - 1];
+    if (lastPoint.x > 0) {
+        userProfile.push(new THREE.Vector2(0, lastPoint.y));
     }
 
-    const finalProfilePoints = sortedProfile.map(p => {
+    const finalProfilePoints = userProfile.map(p => {
         const pClone = p.clone();
         pClone.x = Math.max(0.01, pClone.x);
         return pClone;
