@@ -50,14 +50,37 @@ const wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true, transpa
 let pendantMesh;
 let wireframeMesh;
 
+// --- State Persistence ---
+function saveState() {
+    localStorage.setItem('pendantPoints', JSON.stringify(points));
+    localStorage.setItem('wireframeEnabled', wireframeCheckbox.checked);
+    localStorage.setItem('normalMaterialEnabled', normalCheckbox.checked);
+}
+
+function loadState() {
+    const savedPoints = localStorage.getItem('pendantPoints');
+    if (savedPoints) {
+        const pointsData = JSON.parse(savedPoints);
+        points = pointsData.map(p => new THREE.Vector2(p.x, p.y));
+    }
+
+    const wireframeEnabled = localStorage.getItem('wireframeEnabled');
+    // Set default to true if nothing is saved
+    wireframeCheckbox.checked = wireframeEnabled !== null ? JSON.parse(wireframeEnabled) : true;
+
+    const normalMaterialEnabled = localStorage.getItem('normalMaterialEnabled');
+    // Set default to true if nothing is saved
+    normalCheckbox.checked = normalMaterialEnabled !== null ? JSON.parse(normalMaterialEnabled) : true;
+}
+
 function updateWireframeAppearance() {
     if (!wireframeMaterial) return;
 
     if (normalCheckbox.checked) {
-        wireframeMaterial.color.set(0x000000); // Black for normal material
+        wireframeMaterial.color.set(0x000000);
         wireframeMaterial.opacity = 0.15;
     } else {
-        wireframeMaterial.color.set(0x0077ff); // Blue for standard material
+        wireframeMaterial.color.set(0x0077ff);
         wireframeMaterial.opacity = 0.25;
     }
 }
@@ -74,16 +97,13 @@ function update3DModel() {
 
     if (points.length < 2) return;
 
-    // Use the points in the user-defined order, creating a copy.
     const userProfile = [...points];
 
-    // Add a cap at the start of the line.
     const firstPoint = userProfile[0];
     if (firstPoint.x > 0) {
         userProfile.unshift(new THREE.Vector2(0, firstPoint.y));
     }
 
-    // Add a cap at the end of the line.
     const lastPoint = userProfile[userProfile.length - 1];
     if (lastPoint.x > 0) {
         userProfile.push(new THREE.Vector2(0, lastPoint.y));
@@ -104,6 +124,8 @@ function update3DModel() {
     wireframeMesh = new THREE.Mesh(geometry, wireframeMaterial);
     wireframeMesh.visible = wireframeCheckbox.checked;
     scene.add(wireframeMesh);
+    
+    saveState(); // Save state after every update
 }
 
 
@@ -189,6 +211,7 @@ wireframeCheckbox.addEventListener('change', () => {
     if (wireframeMesh) {
         wireframeMesh.visible = wireframeCheckbox.checked;
     }
+    saveState();
 });
 
 normalCheckbox.addEventListener('change', () => {
@@ -196,6 +219,7 @@ normalCheckbox.addEventListener('change', () => {
         pendantMesh.material = normalCheckbox.checked ? normalMaterial : standardMaterial;
     }
     updateWireframeAppearance();
+    saveState();
 });
 
 function handleMouseMove(event) {
@@ -297,6 +321,7 @@ function animate() {
 }
 
 // --- Initial Run ---
+loadState();
 drawProfile();
 update3DModel();
 animate();
