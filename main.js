@@ -8,6 +8,8 @@ const profileCtx = profileCanvas.getContext('2d');
 const wireframeCheckbox = document.getElementById('wireframeToggle');
 const normalCheckbox = document.getElementById('normalToggle');
 const resetButton = document.getElementById('resetButton');
+const xCoordInput = document.getElementById('xCoordInput');
+const yCoordInput = document.getElementById('yCoordInput');
 
 // --- Constants ---
 const DEFAULT_POINTS = [
@@ -31,7 +33,7 @@ camera.position.set(5, 2, 5);
 const renderer = new THREE.WebGLRenderer({ canvas: sceneCanvas, antialias: true });
 renderer.setSize(sceneCanvas.width, sceneCanvas.height);
 
-// --- Lighting ---
+// --- Lighting, Controls, Materials ---
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 const mainLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -41,11 +43,9 @@ const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
 fillLight.position.set(-5, -5, -7.5);
 scene.add(fillLight);
 
-// --- Controls ---
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// --- Materials ---
 const standardMaterial = new THREE.MeshStandardMaterial({ color: 0xD8D8D8, side: THREE.DoubleSide, metalness: 0.9, roughness: 0.3 });
 const normalMaterial = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide });
 const wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true, transparent: true });
@@ -54,7 +54,22 @@ const wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true, transpa
 let pendantMesh;
 let wireframeMesh;
 
-// --- State Persistence & Logic ---
+// --- Logic & State Management ---
+function updateCoordinateInputs() {
+    if (selectedPoint !== null && points[selectedPoint]) {
+        const point = points[selectedPoint];
+        xCoordInput.value = point.x.toFixed(2);
+        yCoordInput.value = point.y.toFixed(2);
+        xCoordInput.disabled = false;
+        yCoordInput.disabled = false;
+    } else {
+        xCoordInput.value = '';
+        yCoordInput.value = '';
+        xCoordInput.disabled = true;
+        yCoordInput.disabled = true;
+    }
+}
+
 function saveState() {
     localStorage.setItem('pendantPoints', JSON.stringify(points));
     localStorage.setItem('wireframeEnabled', wireframeCheckbox.checked);
@@ -81,13 +96,14 @@ function resetState() {
     points = [...DEFAULT_POINTS.map(p => p.clone())];
     wireframeCheckbox.checked = true;
     normalCheckbox.checked = true;
+    selectedPoint = null;
+    updateCoordinateInputs();
     drawProfile();
     update3DModel();
 }
 
 function updateWireframeAppearance() {
     if (!wireframeMaterial) return;
-
     if (normalCheckbox.checked) {
         wireframeMaterial.color.set(0x000000);
         wireframeMaterial.opacity = 0.15;
@@ -110,16 +126,10 @@ function update3DModel() {
     if (points.length < 2) return;
 
     const userProfile = [...points];
-
     const firstPoint = userProfile[0];
-    if (firstPoint.x > 0) {
-        userProfile.unshift(new THREE.Vector2(0, firstPoint.y));
-    }
-
+    if (firstPoint.x > 0) userProfile.unshift(new THREE.Vector2(0, firstPoint.y));
     const lastPoint = userProfile[userProfile.length - 1];
-    if (lastPoint.x > 0) {
-        userProfile.push(new THREE.Vector2(0, lastPoint.y));
-    }
+    if (lastPoint.x > 0) userProfile.push(new THREE.Vector2(0, lastPoint.y));
 
     const finalProfilePoints = userProfile.map(p => {
         const pClone = p.clone();
@@ -128,7 +138,6 @@ function update3DModel() {
     });
 
     const geometry = new THREE.LatheGeometry(finalProfilePoints, 32);
-
     pendantMesh = new THREE.Mesh(geometry, normalCheckbox.checked ? normalMaterial : standardMaterial);
     scene.add(pendantMesh);
 
@@ -140,11 +149,8 @@ function update3DModel() {
     saveState();
 }
 
-
-// --- 2D Canvas Drawing ---
 function drawProfile() {
     profileCtx.clearRect(0, 0, profileCanvas.width, profileCanvas.height);
-    
     profileCtx.beginPath();
     profileCtx.moveTo(profileCanvas.width / 2, 0);
     profileCtx.lineTo(profileCanvas.width / 2, profileCanvas.height);
@@ -155,12 +161,10 @@ function drawProfile() {
 
     const firstPoint = points[0];
     const lastPoint = points[points.length - 1];
-
     profileCtx.save();
     profileCtx.setLineDash([4, 4]);
     profileCtx.strokeStyle = '#aaa';
     profileCtx.lineWidth = 1;
-
     if (firstPoint.x > 0) {
         const firstCanvasPoint = toCanvasCoords(firstPoint);
         profileCtx.beginPath();
@@ -168,7 +172,6 @@ function drawProfile() {
         profileCtx.lineTo(firstCanvasPoint.x, firstCanvasPoint.y);
         profileCtx.stroke();
     }
-
     if (lastPoint.x > 0) {
         const lastCanvasPoint = toCanvasCoords(lastPoint);
         profileCtx.beginPath();
@@ -181,11 +184,8 @@ function drawProfile() {
     profileCtx.beginPath();
     for (let i = 0; i < points.length; i++) {
         const canvasPoint = toCanvasCoords(points[i]);
-        if (i === 0) {
-            profileCtx.moveTo(canvasPoint.x, canvasPoint.y);
-        } else {
-            profileCtx.lineTo(canvasPoint.x, canvasPoint.y);
-        }
+        if (i === 0) profileCtx.moveTo(canvasPoint.x, canvasPoint.y);
+        else profileCtx.lineTo(canvasPoint.x, canvasPoint.y);
     }
     profileCtx.strokeStyle = '#333';
     profileCtx.lineWidth = 2;
@@ -210,50 +210,53 @@ function toCanvasCoords(worldPoint) {
     const y = (profileCanvas.height / 2) - worldPoint.y * worldScale;
     return { x, y };
 }
-
 function toWorldCoords(canvasPoint) {
     const x = (canvasPoint.x - profileCanvas.width / 2) / worldScale;
     const y = (profileCanvas.height / 2 - canvasPoint.y) / worldScale;
     return new THREE.Vector2(x, y);
 }
 
-
 // --- Event Handlers ---
 resetButton.addEventListener('click', resetState);
-
 wireframeCheckbox.addEventListener('change', () => {
-    if (wireframeMesh) {
-        wireframeMesh.visible = wireframeCheckbox.checked;
-    }
+    if (wireframeMesh) wireframeMesh.visible = wireframeCheckbox.checked;
     saveState();
 });
-
 normalCheckbox.addEventListener('change', () => {
-    if (pendantMesh) {
-        pendantMesh.material = normalCheckbox.checked ? normalMaterial : standardMaterial;
-    }
+    if (pendantMesh) pendantMesh.material = normalCheckbox.checked ? normalMaterial : standardMaterial;
     updateWireframeAppearance();
     saveState();
 });
 
+function handleCoordinateChange() {
+    if (selectedPoint !== null) {
+        const newX = parseFloat(xCoordInput.value);
+        const newY = parseFloat(yCoordInput.value);
+        if (!isNaN(newX) && !isNaN(newY)) {
+            points[selectedPoint].x = Math.max(0, newX);
+            points[selectedPoint].y = newY;
+            drawProfile();
+            update3DModel();
+        }
+    }
+}
+xCoordInput.addEventListener('change', handleCoordinateChange);
+yCoordInput.addEventListener('change', handleCoordinateChange);
+
 function handleMouseMove(event) {
     if (!isDragging || selectedPoint === null) return;
-
     const rect = profileCanvas.getBoundingClientRect();
     let mouseX = event.clientX - rect.left;
     let mouseY = event.clientY - rect.top;
-
     mouseX = Math.max(0, Math.min(profileCanvas.width, mouseX));
     mouseY = Math.max(0, Math.min(profileCanvas.height, mouseY));
-
     const worldPos = toWorldCoords({ x: mouseX, y: mouseY });
     worldPos.x = Math.max(0, worldPos.x);
-
     points[selectedPoint] = worldPos;
+    updateCoordinateInputs();
     drawProfile();
     update3DModel();
 }
-
 function handleMouseUp() {
     isDragging = false;
     window.removeEventListener('mousemove', handleMouseMove);
@@ -263,8 +266,6 @@ function handleMouseUp() {
 profileCanvas.addEventListener('mousedown', (event) => {
     const rect = profileCanvas.getBoundingClientRect();
     const mousePos = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    const worldPos = toWorldCoords(mousePos);
-
     selectedPoint = null;
     let pointFound = false;
     for (let i = 0; i < points.length; i++) {
@@ -279,8 +280,8 @@ profileCanvas.addEventListener('mousedown', (event) => {
             break;
         }
     }
-
     if (!pointFound) {
+        const worldPos = toWorldCoords(mousePos);
         let closestDist = Infinity;
         let insertionIndex = points.length;
         for (let i = 0; i < points.length - 1; i++) {
@@ -295,7 +296,7 @@ profileCanvas.addEventListener('mousedown', (event) => {
         points.splice(insertionIndex, 0, worldPos);
         selectedPoint = insertionIndex;
     }
-    
+    updateCoordinateInputs();
     drawProfile();
     update3DModel();
 });
@@ -303,7 +304,6 @@ profileCanvas.addEventListener('mousedown', (event) => {
 profileCanvas.addEventListener('dblclick', (event) => {
     const rect = profileCanvas.getBoundingClientRect();
     const mousePos = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-
     for (let i = 0; i < points.length; i++) {
         const canvasPoint = toCanvasCoords(points[i]);
         const dist = Math.sqrt(Math.pow(canvasPoint.x - mousePos.x, 2) + Math.pow(canvasPoint.y - mousePos.y, 2));
@@ -311,6 +311,7 @@ profileCanvas.addEventListener('dblclick', (event) => {
             if (points.length > 2) {
                 points.splice(i, 1);
                 selectedPoint = null;
+                updateCoordinateInputs();
                 drawProfile();
                 update3DModel();
                 break;
@@ -338,4 +339,5 @@ function animate() {
 loadState();
 drawProfile();
 update3DModel();
+updateCoordinateInputs(); // Set initial state of inputs
 animate();
