@@ -7,14 +7,18 @@ const sceneCanvas = document.getElementById('sceneCanvas');
 const profileCtx = profileCanvas.getContext('2d');
 const wireframeCheckbox = document.getElementById('wireframeToggle');
 const normalCheckbox = document.getElementById('normalToggle');
+const resetButton = document.getElementById('resetButton');
 
-// --- 2D Profile State ---
-let points = [
+// --- Constants ---
+const DEFAULT_POINTS = [
     new THREE.Vector2(0.5, 2),
     new THREE.Vector2(1.5, 1),
     new THREE.Vector2(1.5, -1),
     new THREE.Vector2(0.5, -2),
 ];
+
+// --- 2D Profile State ---
+let points = [...DEFAULT_POINTS.map(p => p.clone())];
 let selectedPoint = null;
 let isDragging = false;
 
@@ -50,7 +54,7 @@ const wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true, transpa
 let pendantMesh;
 let wireframeMesh;
 
-// --- State Persistence ---
+// --- State Persistence & Logic ---
 function saveState() {
     localStorage.setItem('pendantPoints', JSON.stringify(points));
     localStorage.setItem('wireframeEnabled', wireframeCheckbox.checked);
@@ -62,15 +66,23 @@ function loadState() {
     if (savedPoints) {
         const pointsData = JSON.parse(savedPoints);
         points = pointsData.map(p => new THREE.Vector2(p.x, p.y));
+    } else {
+        points = [...DEFAULT_POINTS.map(p => p.clone())];
     }
 
     const wireframeEnabled = localStorage.getItem('wireframeEnabled');
-    // Set default to true if nothing is saved
     wireframeCheckbox.checked = wireframeEnabled !== null ? JSON.parse(wireframeEnabled) : true;
 
     const normalMaterialEnabled = localStorage.getItem('normalMaterialEnabled');
-    // Set default to true if nothing is saved
     normalCheckbox.checked = normalMaterialEnabled !== null ? JSON.parse(normalMaterialEnabled) : true;
+}
+
+function resetState() {
+    points = [...DEFAULT_POINTS.map(p => p.clone())];
+    wireframeCheckbox.checked = true;
+    normalCheckbox.checked = true;
+    drawProfile();
+    update3DModel();
 }
 
 function updateWireframeAppearance() {
@@ -125,7 +137,7 @@ function update3DModel() {
     wireframeMesh.visible = wireframeCheckbox.checked;
     scene.add(wireframeMesh);
     
-    saveState(); // Save state after every update
+    saveState();
 }
 
 
@@ -207,6 +219,8 @@ function toWorldCoords(canvasPoint) {
 
 
 // --- Event Handlers ---
+resetButton.addEventListener('click', resetState);
+
 wireframeCheckbox.addEventListener('change', () => {
     if (wireframeMesh) {
         wireframeMesh.visible = wireframeCheckbox.checked;
