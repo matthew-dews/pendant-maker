@@ -16,6 +16,8 @@ async function startApp() {
         const importInput = document.getElementById('importInput');
         const xCoordInput = document.getElementById('xCoordInput');
         const yCoordInput = document.getElementById('yCoordInput');
+        const instructionsModal = document.getElementById('instructionsModal');
+        const closeInstructionsButton = document.getElementById('closeInstructions');
 
         // --- Constants ---
         const DEFAULT_POINTS = [
@@ -61,6 +63,15 @@ async function startApp() {
         let wireframeMesh;
 
         // --- Logic & State Management ---
+        function showInstructions() {
+            instructionsModal.style.display = 'flex';
+        }
+
+        function hideInstructions() {
+            instructionsModal.style.display = 'none';
+            localStorage.setItem('hasSeenInstructions', 'true');
+        }
+
         function updateCoordinateInputs() {
             if (selectedPoint !== null && points[selectedPoint]) {
                 const point = points[selectedPoint];
@@ -235,12 +246,10 @@ async function startApp() {
         }
 
         function exportData() {
-            // Export STL
             const exporter = new STLExporter();
             const stlString = exporter.parse(pendantMesh);
             triggerDownload('pendant.stl', stlString);
 
-            // Export JSON
             const jsonString = JSON.stringify(points, null, 2);
             triggerDownload('pendant.json', jsonString);
         }
@@ -253,7 +262,6 @@ async function startApp() {
             reader.onload = (e) => {
                 try {
                     const json = JSON.parse(e.target.result);
-                    // Basic validation
                     if (Array.isArray(json) && json.every(p => typeof p.x === 'number' && typeof p.y === 'number')) {
                         points = json.map(p => new THREE.Vector2(p.x, p.y));
                         selectedPoint = null;
@@ -266,7 +274,6 @@ async function startApp() {
                 } catch (error) {
                     alert('Error reading or parsing JSON file.');
                 }
-                // Reset file input
                 importInput.value = '';
             };
             reader.readAsText(file);
@@ -276,6 +283,7 @@ async function startApp() {
         resetButton.addEventListener('click', resetState);
         exportButton.addEventListener('click', exportData);
         importInput.addEventListener('change', importData);
+        closeInstructionsButton.addEventListener('click', hideInstructions);
 
         wireframeCheckbox.addEventListener('change', () => {
             if (wireframeMesh) wireframeMesh.visible = wireframeCheckbox.checked;
@@ -394,11 +402,16 @@ async function startApp() {
             renderer.render(scene, camera);
         }
 
+        // --- Initial Run ---
         loadState();
         drawProfile();
         update3DModel();
         updateCoordinateInputs();
         animate();
+
+        if (!localStorage.getItem('hasSeenInstructions')) {
+            showInstructions();
+        }
 
     } catch (err) {
         console.error('Failed to load 3D modules', err);

@@ -6,7 +6,7 @@
     <title>Pendant Designer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -34,6 +34,19 @@
                 <label><input type="checkbox" id="normalToggle" checked> Use Normal Material</label>
             </div>
             <canvas id="sceneCanvas" width="600" height="600"></canvas>
+        </div>
+    </div>
+
+    <div id="instructionsModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h2>Welcome to Pendant Designer!</h2>
+            <ul>
+                <li><b>Add a Point:</b> Click anywhere on a line to add a new point.</li>
+                <li><b>Move a Point:</b> Click and drag any point.</li>
+                <li><b>Delete a Point:</b> Double-click on a point to remove it.</li>
+                <li><b>Control the Camera:</b> In the 3D view, drag to orbit, scroll to zoom, and right-click to pan.</li>
+            </ul>
+            <button id="closeInstructions">Got it!</button>
         </div>
     </div>
 
